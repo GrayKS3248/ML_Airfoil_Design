@@ -18,7 +18,7 @@ class Panels:
         self.spacing_code = self.encode_spacing(panel_spacing)
         
         # Get panel coordinates
-        self.x_coords, self.y_coords, self.camber_line = self.get_coords(self.n_panels, self.spacing_code)
+        self.x_coords, self.y_coords, self.camber_line, self.NACA_name = self.get_coords(self.n_panels, self.spacing_code)
         
     # Ensures the passed number of panels is valid
     # @param Number of panels to create
@@ -49,8 +49,8 @@ class Panels:
     def get_coords(self, n_panels, spacing_code):
         
         x_coords = self.get_x_coords(n_panels, spacing_code)
-        x_coords, y_coords, camber_line = self.get_y_coords(x_coords)
-        return x_coords, y_coords, camber_line
+        x_coords, y_coords, camber_line, NACA_name = self.get_y_coords(x_coords)
+        return x_coords, y_coords, camber_line, NACA_name
     
     # Gets the x/c normalized coordinates of the panels
     # @param Number of panels
@@ -80,11 +80,11 @@ class Panels:
         
         x_on_c = x_coords[0:len(x_coords)//2+1]
         
-        max_thickness = 0.25*(np.random.rand()+0.1)
+        max_thickness = 0.15 * np.random.rand() + 0.10
         half_thickness = 5.0*max_thickness*(0.2969*x_on_c**0.5-0.1260*x_on_c-0.3516*x_on_c**2.0+0.2843*x_on_c**3.0-0.1015*x_on_c**4.0)
         
-        max_camber = 0.04*(np.random.rand()+0.001)
-        max_camber_loc = 0.5*(np.random.rand()+0.1)
+        max_camber = 0.069 * np.random.rand() + 0.001
+        max_camber_loc = 0.4 * np.random.rand() + 0.1
         LE_camber_line = (max_camber * x_on_c / (max_camber_loc**2.0) * (2.0 * max_camber_loc - x_on_c)) * (x_on_c<=max_camber_loc)
         TE_camber_line = (max_camber * (1.0-x_on_c) / (1.0-max_camber_loc)**2.0 * (1.0 + x_on_c - 2.0 * max_camber_loc)) * (x_on_c>max_camber_loc)
         camber_line = LE_camber_line + TE_camber_line
@@ -105,7 +105,9 @@ class Panels:
         x_coords[x_coords < 0.0] = 0.0
         x_coords[x_coords > 1.0] = 1.0
         
-        return x_coords, y_coords, camber_line
+        NACA_name = "NACA_" + str(round(max_camber*100.0)) + str(round(max_camber_loc*10.0)) + str(round(max_thickness*100.0))
+        
+        return x_coords, y_coords, camber_line, NACA_name
     
     # Renders and save the panels
     # @param save path
@@ -129,9 +131,12 @@ class Panels:
         
         plt.xlabel("X/C [-]", fontsize="large")
         plt.ylabel("Y/C [-]", fontsize="large")
-        plt.title("Airfoil " + str(num), fontsize="xx-large")
+        plt.title(self.NACA_name, fontsize="xx-large")
         
         plt.xlim([0.0, 1.0])
         plt.ylim([-0.15, 0.20])
+        plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0],fontsize='large')
+        plt.yticks([-0.15, -0.05, 0.05, 0.15, 0.25],fontsize='large')
         
+        plt.gcf().set_size_inches(8,2.8)
         plt.savefig(path, dpi=200)
