@@ -12,13 +12,11 @@ import os
 
 class Panels:
     
-    def __init__(self, n_panels, panel_spacing="uniform", NACA='random'):
+    def __init__(self, n_panels):
         
         self.n_panels = self.get_n_panels(n_panels)
-        self.spacing_code = self.encode_spacing(panel_spacing)
-        self.NACA_code = self.get_NACA_code(NACA)
         
-        self.x_coords, self.y_coords, self.camber_line, self.NACA_name = self.get_coords(self.n_panels, self.spacing_code, self.NACA_code)
+        self.x_coords, self.y_coords, self.camber_line = self.get_coords(self.n_panels)
         self.control_x_coords, self.control_y_coords = self.get_points(self.x_coords, self.y_coords)
         self.normal = self.get_normal(self.x_coords, self.y_coords)
         self.lengths = self.get_length(self.x_coords, self.y_coords)
@@ -28,13 +26,13 @@ class Panels:
     # @param y coords to be set
     def set_y_coords(self, y_coords):
         self.y_coords = y_coords
-        self.camber_line, self.NACA_name = self.get_camber(self.y_coords)
+        self.camber_line = self.get_camber(self.y_coords)
         self.control_x_coords, self.control_y_coords = self.get_points(self.x_coords, self.y_coords)
         self.normal = self.get_normal(self.x_coords, self.y_coords)
         self.lengths = self.get_length(self.x_coords, self.y_coords)
         self.theta = self.get_angles(self.x_coords, self.y_coords, self.lengths)
         
-    # Calculates the camberline and NACA code of given panels coordinates
+    # Calculates the camberline of given panels coordinates
     # @param Y cooridinates of panels
     def get_camber(self, y_coords):
         
@@ -42,7 +40,7 @@ class Panels:
         top_surface = np.flip(y_coords[len(y_coords)//2:])
         camber_line = (top_surface + bot_surface) / 2.0
         
-        return camber_line, 'Rebuilt Airfoil'
+        return camber_line
         
     # Ensures the passed number of panels is valid
     # @param Number of panels to create
@@ -54,114 +52,151 @@ class Panels:
         else:
             raise Exception("Invalid number of panels (must be even).")
         
-    # Gets the panel spacing code based on input string
-    # @param Panel spacing input string
-    def encode_spacing(self, panel_spacing):
-        
-        if panel_spacing.lower() == "uniform":
-            return 0
-        
-        elif panel_spacing.lower() == "chebyshev":
-            return 1
-        
-        else:
-            raise Exception("Invalid panel spacing selection.")
-    
-    # Gets the NACA code associated with input parameters
-    # @param input NACA code
-    def get_NACA_code(self, NACA):
-        
-        if NACA.lower() == "rand" or NACA.lower() == "random" or NACA.lower() == "":
-            return ""
-        
-        elif len(NACA)==4 and NACA[0].isdigit() and NACA[1].isdigit() and NACA[2:].isdigit():
-            return NACA
-        
-        else:
-            raise Exception("Unrecognized NACA code.")
-        
     # Gets the x/c and y/c normalized coordinates of the panels
     # @param Number of panels
-    # @param Panel spacing code
-    # @param NACA code (if any) to generate
-    def get_coords(self, n_panels, spacing_code, NACA_code):
+    def get_coords(self, n_panels):
         
-        x_coords = self.get_x_coords(n_panels, spacing_code)
-        x_coords, y_coords, camber_line, NACA_name = self.get_y_coords(x_coords, NACA_code)
-        return x_coords, y_coords, camber_line, NACA_name
+        x_coords = self.get_x_coords(n_panels)
+        y_coords, camber_line = self.get_y_coords(x_coords)
+        return x_coords, y_coords, camber_line
     
     # Gets the x/c normalized coordinates of the panels
     # @param Number of panels
-    # @param Panel spacing code
-    def get_x_coords(self, n_panels, spacing_code):
+    def get_x_coords(self, n_panels):
         
-        if spacing_code == 0:
-            top_coords = np.linspace(0.0,1.0,(n_panels//2)+1)
-            bot_coords = np.linspace(1.0,0.0,(n_panels//2)+1)
-            x_coords = np.concatenate((bot_coords, top_coords[1:]))
-            return x_coords
+        n = (n_panels//2)
+        j = np.arange(n+1)
+        top_coords = 0.5 - 0.5*np.cos(j*np.pi/n)
+        bot_coords = 0.5 + 0.5*np.cos(j*np.pi/n)
+        x_coords = np.concatenate((bot_coords, top_coords[1:]))
         
-        elif spacing_code == 1:
-            n = (n_panels//2)
-            j = np.arange(n+1)
-            top_coords = 0.5 - 0.5*np.cos(j*np.pi/n)
-            bot_coords = 0.5 + 0.5*np.cos(j*np.pi/n)
-            x_coords = np.concatenate((bot_coords, top_coords[1:]))
-            return x_coords
-        
-        else:
-            raise Exception("Unrecognized panel spacing code.")
+        return x_coords
 
     # Gets the y/c normalized coordinates of the panels and camber updated x/c normalized coords of the panels
     # @param X cooridinates of panels
-    # @param NACA code (if any) to generate
-    def get_y_coords(self, x_coords, NACA_code):
+    def get_y_coords(self, x_coords):
         
         x_on_c = x_coords[0:len(x_coords)//2+1]
         
-        if len(NACA_code) == 0:
-            max_thickness = 0.18 * np.random.rand() + 0.06
-            max_camber = 0.059 * np.random.rand() + 0.001
-            max_camber_loc = 0.4 * np.random.rand() + 0.2
+        max_thickness = 0.15 * np.random.rand() + 0.10
+        max_thickness_loc = 0.10 * np.random.rand() + 0.05
+        LE_thickness_pitch = 1.0 * np.random.rand() + 1.0
+        TE_thickness_pitch = 1.0 * np.random.rand() + 1.0
         
-        else:
-            max_thickness = float(NACA_code[2:])/100.0
-            max_camber = float(NACA_code[0]) / 100.0
-            max_camber_loc = float(NACA_code[1]) / 10.0
+        LE_term = LE_thickness_pitch*np.exp(np.log((LE_thickness_pitch+1.0)/LE_thickness_pitch)*((2.0*x_on_c)/max_thickness_loc - (x_on_c/max_thickness_loc)**2.0))-LE_thickness_pitch
+        TE_term = TE_thickness_pitch*((TE_thickness_pitch+1.0)/TE_thickness_pitch)**(((2.0*max_thickness_loc-x_on_c-1.0)*(x_on_c-1.0))/(max_thickness_loc-1.0)**2.0)-TE_thickness_pitch
         
-        half_thickness = 5.0*max_thickness*(0.2969*x_on_c**0.5-0.1260*x_on_c-0.3516*x_on_c**2.0+0.2843*x_on_c**3.0-0.1015*x_on_c**4.0)
+        LE_half_thickness = 0.5*max_thickness*LE_term*(x_on_c<=max_thickness_loc)
+        TE_half_thickness = 0.5*max_thickness*TE_term*(x_on_c>max_thickness_loc)
+        half_thickness = LE_half_thickness + TE_half_thickness
+        half_thickness[half_thickness<=1.0e-8] = 0.0
         
-        if max_camber == 0.0 or max_camber_loc == 0.0:
-            camber_line = np.zeros(len(x_on_c))
-            y_upper = half_thickness
-            y_lower = -half_thickness
+        camber_type = np.random.randint(0,4)
+        
+        if camber_type==0:
+            max_camber = 0.069 * np.random.rand() + 0.001
+            max_camber_loc = 0.40 * np.random.rand() + 0.10
+            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            TE_camber_pitch = 1.99 * np.random.rand() + 0.01
             
-        else:
-            LE_camber_line = (max_camber * x_on_c / (max_camber_loc**2.0) * (2.0 * max_camber_loc - x_on_c)) * (x_on_c<=max_camber_loc)
-            TE_camber_line = (max_camber * (1.0-x_on_c) / (1.0-max_camber_loc)**2.0 * (1.0 + x_on_c - 2.0 * max_camber_loc)) * (x_on_c>max_camber_loc)
-            camber_line = LE_camber_line + TE_camber_line
+            LE_term = LE_camber_pitch*np.exp(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)*((2.0*x_on_c)/max_camber_loc - (x_on_c/max_camber_loc)**2.0))-LE_camber_pitch
+            TE_term = TE_camber_pitch*((TE_camber_pitch+1.0)/TE_camber_pitch)**(((2.0*max_camber_loc-x_on_c-1.0)*(x_on_c-1.0))/(max_camber_loc-1.0)**2.0)-TE_camber_pitch
+            
+            LE_camber = max_camber*LE_term*(x_on_c<=max_camber_loc)
+            TE_camber = max_camber*TE_term*(x_on_c>max_camber_loc)
+            camber_line = LE_camber + TE_camber
+            camber_line[camber_line<=1.0e-8] = 0.0
         
-            LE_theta = np.arctan((-2.0*max_camber / (max_camber_loc**2.0) * (x_on_c - max_camber_loc))) * (x_on_c<=max_camber_loc)
-            TE_theta = np.arctan((-2.0*max_camber / (max_camber_loc-1.0)**2.0 * (x_on_c - max_camber_loc))) * (x_on_c>max_camber_loc)
-            theta = LE_theta+TE_theta
+        elif camber_type==1:
+            camber_inflection = 0.40 * np.random.rand() + 0.50
+            
+            LE_max_camber = 0.069 * np.random.rand() + 0.001
+            LE_max_camber_loc = 0.30 * camber_inflection  * np.random.rand() + 0.30 * camber_inflection
+            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            LE_inflection_pitch = 1.99 * np.random.rand() + 0.01
+            
+            LE_sigma_1 = (np.sqrt(2.0)*LE_max_camber_loc) / (2.0*np.sqrt(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)))
+            LE_term_1 = (LE_camber_pitch + 1.0)*np.exp(-0.5*((x_on_c-LE_max_camber_loc)/LE_sigma_1)**2.0)-LE_camber_pitch
+            LE_sigma_2 = (np.sqrt(2.0)*(camber_inflection-LE_max_camber_loc)) / (2.0*np.sqrt(np.log((LE_inflection_pitch+1.0)/LE_inflection_pitch)))
+            LE_term_2 = (LE_inflection_pitch + 1.0)*np.exp(-0.5*((x_on_c-LE_max_camber_loc)/LE_sigma_2)**2.0)-LE_inflection_pitch
+            
+            LE_camber_1 = LE_max_camber*LE_term_1*(x_on_c<=LE_max_camber_loc)
+            LE_camber_2 = LE_max_camber*LE_term_2*((x_on_c>LE_max_camber_loc) * (x_on_c<=camber_inflection))
+            LE_camber = LE_camber_1 + LE_camber_2
+            
+            TE_max_camber = 0.049 * np.random.rand() + 0.001
+            TE_max_camber_loc = (0.90 - camber_inflection - 0.1)  * np.random.rand() + camber_inflection + 0.1
+            TE_inflection_pitch = 1.99 * np.random.rand() + 0.01
+            TE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            
+            TE_sigma_1 = (np.sqrt(2.0)*(TE_max_camber_loc-camber_inflection)) / (2.0*np.sqrt(np.log((TE_inflection_pitch+1.0)/TE_inflection_pitch)))
+            TE_term_1 = (TE_inflection_pitch + 1.0)*np.exp(-0.5*((x_on_c-TE_max_camber_loc)/TE_sigma_1)**2.0)-TE_inflection_pitch
+            TE_sigma_2 = (np.sqrt(2.0)*(1.0-TE_max_camber_loc)) / (2.0*np.sqrt(np.log((TE_camber_pitch+1.0)/TE_camber_pitch)))
+            TE_term_2 = (TE_camber_pitch + 1.0)*np.exp(-0.5*((x_on_c-TE_max_camber_loc)/TE_sigma_2)**2.0)-TE_camber_pitch
+            
+            TE_camber_1 = -TE_max_camber*TE_term_1*((x_on_c>camber_inflection) * (x_on_c<=TE_max_camber_loc))
+            TE_camber_2 = -TE_max_camber*TE_term_2*((x_on_c>TE_max_camber_loc))
+            TE_camber = TE_camber_1 + TE_camber_2
+            
+            camber_line = LE_camber + TE_camber
+            camber_line[abs(camber_line)<=1.0e-8] = 0.0
         
-            y_upper = camber_line + half_thickness * np.cos(theta)
-            y_lower = camber_line - half_thickness * np.cos(theta)
+        elif camber_type==2:
+            camber_inflection = 0.30 * np.random.rand() + 0.20
+            
+            LE_max_camber = 0.069 * np.random.rand() + 0.001
+            LE_max_camber_loc = 0.30 * camber_inflection  * np.random.rand() + 0.30 * camber_inflection
+            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            LE_inflection_pitch = 1.99 * np.random.rand() + 0.01
+            
+            LE_sigma_1 = (np.sqrt(2.0)*LE_max_camber_loc) / (2.0*np.sqrt(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)))
+            LE_term_1 = (LE_camber_pitch + 1.0)*np.exp(-0.5*((x_on_c-LE_max_camber_loc)/LE_sigma_1)**2.0)-LE_camber_pitch
+            LE_sigma_2 = (np.sqrt(2.0)*(camber_inflection-LE_max_camber_loc)) / (2.0*np.sqrt(np.log((LE_inflection_pitch+1.0)/LE_inflection_pitch)))
+            LE_term_2 = (LE_inflection_pitch + 1.0)*np.exp(-0.5*((x_on_c-LE_max_camber_loc)/LE_sigma_2)**2.0)-LE_inflection_pitch
+            
+            LE_camber_1 = -LE_max_camber*LE_term_1*(x_on_c<=LE_max_camber_loc)
+            LE_camber_2 = -LE_max_camber*LE_term_2*((x_on_c>LE_max_camber_loc) * (x_on_c<=camber_inflection))
+            LE_camber = LE_camber_1 + LE_camber_2
+            
+            TE_max_camber = 0.049 * np.random.rand() + 0.001
+            TE_max_camber_loc = (0.90 - camber_inflection - 0.1)  * np.random.rand() + camber_inflection + 0.1
+            TE_inflection_pitch = 1.99 * np.random.rand() + 0.01
+            TE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            
+            TE_sigma_1 = (np.sqrt(2.0)*(TE_max_camber_loc-camber_inflection)) / (2.0*np.sqrt(np.log((TE_inflection_pitch+1.0)/TE_inflection_pitch)))
+            TE_term_1 = (TE_inflection_pitch + 1.0)*np.exp(-0.5*((x_on_c-TE_max_camber_loc)/TE_sigma_1)**2.0)-TE_inflection_pitch
+            TE_sigma_2 = (np.sqrt(2.0)*(1.0-TE_max_camber_loc)) / (2.0*np.sqrt(np.log((TE_camber_pitch+1.0)/TE_camber_pitch)))
+            TE_term_2 = (TE_camber_pitch + 1.0)*np.exp(-0.5*((x_on_c-TE_max_camber_loc)/TE_sigma_2)**2.0)-TE_camber_pitch
+            
+            TE_camber_1 = TE_max_camber*TE_term_1*((x_on_c>camber_inflection) * (x_on_c<=TE_max_camber_loc))
+            TE_camber_2 = TE_max_camber*TE_term_2*((x_on_c>TE_max_camber_loc))
+            TE_camber = TE_camber_1 + TE_camber_2
+            
+            camber_line = LE_camber + TE_camber
+            camber_line[abs(camber_line)<=1.0e-8] = 0.0
+        
+        elif camber_type==3:
+            max_camber = 0.069 * np.random.rand() + 0.001
+            max_camber_loc = 0.40 * np.random.rand() + 0.10
+            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            TE_camber_pitch = 1.99 * np.random.rand() + 0.01
+            
+            LE_term = LE_camber_pitch*np.exp(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)*((2.0*x_on_c)/max_camber_loc - (x_on_c/max_camber_loc)**2.0))-LE_camber_pitch
+            TE_term = TE_camber_pitch*((TE_camber_pitch+1.0)/TE_camber_pitch)**(((2.0*max_camber_loc-x_on_c-1.0)*(x_on_c-1.0))/(max_camber_loc-1.0)**2.0)-TE_camber_pitch
+            
+            LE_camber = -max_camber*LE_term*(x_on_c<=max_camber_loc)
+            TE_camber = -max_camber*TE_term*(x_on_c>max_camber_loc)
+            camber_line = LE_camber + TE_camber
+            camber_line[abs(camber_line)<=1.0e-8] = 0.0
+        
+        y_upper = camber_line + half_thickness
+        y_lower = camber_line - half_thickness
             
         y_coords = np.concatenate((y_lower, np.flip(y_upper)[1:]))
         y_coords[0] = 0.0
         y_coords[-1] = 0.0
         
-        mc = str(round(max_camber*100.0))
-        mcl = str(round(max_camber_loc*10.0))
-        t = str(round(max_thickness*100.0))
-        if mc == '0':
-            mcl = '0'
-        if len(t) == 1:
-            t = '0' + t
-        NACA_name = "NACA_" + mc + mcl + t
-        
-        return x_coords, y_coords, camber_line, NACA_name
+        return y_coords, camber_line
     
     # Gets the locations of the vortices and control points
     # @param X coords of panels
@@ -220,7 +255,7 @@ class Panels:
             num = num + 1
         num = num - 1
         
-        if self.NACA_name == 'Rebuilt Airfoil':
+        if 'rebuilt' in airfoil_name.lower():
             path = path + "/airfoil_" + str(num-1) + "_rebuilt.png"
         else:
             path = path + "/airfoil_" + str(num) + ".png"
@@ -264,14 +299,14 @@ class Panels:
         plt.xlabel("X/C [-]", fontsize="large")
         plt.ylabel("Y/C [-]", fontsize="large")
         if airfoil_name == '':
-            plt.title(self.NACA_name, fontsize="xx-large")
+            plt.title('Airfoil', fontsize="xx-large")
         else:
             plt.title(airfoil_name, fontsize="xx-large")
         
         plt.xlim([-0.05, 1.05])
-        plt.ylim([-0.15, 0.20])
+        plt.ylim([-0.25, 0.20])
         plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0],fontsize='large')
-        plt.yticks([-0.15, -0.05, 0.05, 0.15, 0.25],fontsize='large')
+        plt.yticks([-0.25, -0.15, -0.05, 0.05, 0.15, 0.25],fontsize='large')
         
         plt.gcf().set_size_inches(8,2.8)
         plt.savefig(path, dpi=200)
@@ -432,7 +467,7 @@ class Solver:
         return curve_parameters, alpha_curve, lift_curve, moment_curve
         
     # Draws the lift and moment curves
-    def draw_curves(self, path, panels, estimated_performance=[], rebuilt_panels=0.0):
+    def draw_curves(self, path, panels, name='', estimated_performance=[], rebuilt_panels=0.0):
         
         _, alpha_curve, lift_curve, moment_curve = self.get_curves(panels, 50)
         
@@ -479,7 +514,10 @@ class Solver:
             plt.plot(alpha_curve, lift_curve, c='b', lw=2.5)
             plt.xlabel("Angle of Attack [deg]", fontsize="x-large")
             plt.ylabel(r'$C_{l}$'+' [-]', fontsize="x-large")
-            plt.title("Lift Curve", fontsize="xx-large")
+            if name != '':
+                plt.title("Lift Curve for "+name, fontsize="xx-large")
+            else:
+                plt.title("Lift Curve", fontsize="xx-large")
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
             plt.gcf().set_size_inches(8,5.6)
@@ -493,7 +531,10 @@ class Solver:
             plt.plot(alpha_curve, estimated_lift_curve, c='r', lw=2.5, label='Estimated', ls='--')
             plt.xlabel("Angle of Attack [deg]", fontsize="x-large")
             plt.ylabel(r'$C_{l}$'+' [-]', fontsize="x-large")
-            plt.title("Lift Curve", fontsize="xx-large")
+            if name != '':
+                plt.title("Lift Curve for "+name, fontsize="xx-large")
+            else:
+                plt.title("Lift Curve", fontsize="xx-large")
             plt.legend(fontsize='x-large')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
@@ -508,7 +549,10 @@ class Solver:
             plt.plot(alpha_curve, rebuilt_lift_curve, c='r', lw=2.5, label='Rebuilt', ls='--')
             plt.xlabel("Angle of Attack [deg]", fontsize="x-large")
             plt.ylabel(r'$C_{l}$'+' [-]', fontsize="x-large")
-            plt.title("Lift Curve", fontsize="xx-large")
+            if name != '':
+                plt.title("Lift Curve for "+name, fontsize="xx-large")
+            else:
+                plt.title("Lift Curve", fontsize="xx-large")
             plt.legend(fontsize='x-large')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
@@ -529,7 +573,10 @@ class Solver:
             plt.plot(alpha_curve, moment_curve, c='b', lw=2.5)
             plt.xlabel("Angle of Attack [deg]", fontsize="x-large")
             plt.ylabel(r'$C_{m}$'+' [-]', fontsize="x-large")
-            plt.title("Moment Curve", fontsize="xx-large")
+            if name != '':
+                plt.title("Moment Curve for "+name, fontsize="xx-large")
+            else:
+                plt.title("Moment Curve", fontsize="xx-large")
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
             plt.gcf().set_size_inches(8,5.6)
@@ -543,7 +590,10 @@ class Solver:
             plt.plot(alpha_curve, estimated_moment_curve, c='r', lw=2.5, label='Estimated', ls='--')
             plt.xlabel("Angle of Attack [deg]", fontsize="x-large")
             plt.ylabel(r'$C_{m}$'+' [-]', fontsize="x-large")
-            plt.title("Moment Curve", fontsize="xx-large")
+            if name != '':
+                plt.title("Moment Curve for "+name, fontsize="xx-large")
+            else:
+                plt.title("Moment Curve", fontsize="xx-large")
             plt.legend(fontsize='x-large')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
@@ -558,7 +608,10 @@ class Solver:
             plt.plot(alpha_curve, rebuilt_moment_curve, c='r', lw=2.5, label='Rebuilt', ls='--')
             plt.xlabel("Angle of Attack [deg]", fontsize="x-large")
             plt.ylabel(r'$C_{m}$'+' [-]', fontsize="x-large")
-            plt.title("Moment Curve", fontsize="xx-large")
+            if name != '':
+                plt.title("Moment Curve for "+name, fontsize="xx-large")
+            else:
+                plt.title("Moment Curve", fontsize="xx-large")
             plt.legend(fontsize='x-large')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')

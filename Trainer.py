@@ -102,7 +102,7 @@ class Trainer:
                 curr_MSE_loss = self.criterion(performance_output, target)
                         
                 # Calculate loss and take optimization step and learning rate step
-                if curr_MSE_loss <= 30.0:
+                if curr_MSE_loss <= 50.0:
                     self.optimizer_forward.zero_grad()
                     curr_MSE_loss.backward()
                     self.optimizer_forward.step()
@@ -114,7 +114,8 @@ class Trainer:
             self.panels_forward_buffer = []
             self.performance_forward_buffer = []
 
-            return self.tot_MSE_loss / count
+            if count > 0:
+                return self.tot_MSE_loss / count
         
         return -1.0
     
@@ -145,7 +146,7 @@ class Trainer:
                 curr_MSE_loss = self.criterion(panels_output, target)
                         
                 # Calculate loss and take optimization step and learning rate step
-                if curr_MSE_loss <= 30.0:
+                if curr_MSE_loss <= 50.0:
                     self.optimizer_backward.zero_grad()
                     curr_MSE_loss.backward()
                     self.optimizer_backward.step()
@@ -157,7 +158,8 @@ class Trainer:
             self.panels_backward_buffer = []
             self.performance_backward_buffer = []
 
-            return self.tot_MSE_loss / count
+            if count > 0:
+                return self.tot_MSE_loss / count
         
         return -1.0
     
@@ -220,35 +222,38 @@ class Trainer:
         solver = vps.Solver()
         
         for i in range(n_airfoils):
-            panels = vps.Panels(n_panels, panel_spacing='chebyshev')
-            panels.draw(path)
+            panels = vps.Panels(n_panels)
+            panels.draw(path, airfoil_name='Airfoil_'+str(i))
             
-            estimated_performance = trainer.forward(100.0 * panels.y_coords)
-            estimated_performance[2] =  estimated_performance[2] / 100.0
-            estimated_performance[3] =  estimated_performance[3] / 100.0
-            estimated_performance[4] =  estimated_performance[4] / 100.0
+            estimated_performance = self.forward(100.0 * panels.y_coords)
+            estimated_performance[0] = estimated_performance[0] / 1.506
+            estimated_performance[1] = estimated_performance[1] / 1.778
+            estimated_performance[2] = estimated_performance[2] / 106.1
+            estimated_performance[3] = estimated_performance[3] / 38.01
+            estimated_performance[4] = estimated_performance[4] / 39.45
         
             performance_input, _, _, _ = solver.get_curves(panels, 5)
-            performance_input[2] = 100.0 * performance_input[2]
-            performance_input[3] = 100.0 * performance_input[3]
-            performance_input[4] = 100.0 * performance_input[4]
-            rebuilt_panels_y_coords = trainer.backward(performance_input) / 100.0
+            performance_input[0] = 1.506 * performance_input[0]
+            performance_input[1] = 1.778 * performance_input[1]
+            performance_input[2] = 106.1 * performance_input[2]
+            performance_input[3] = 38.01 * performance_input[3]
+            performance_input[4] = 39.45 * performance_input[4]
+            rebuilt_panels_y_coords = self.backward(performance_input) / 112.5
             
-            prev_NACA_name = panels.NACA_name
-            rebuilt_panels = vps.Panels(n_panels, panel_spacing='chebyshev')
+            rebuilt_panels = vps.Panels(n_panels)
             rebuilt_panels.set_y_coords(rebuilt_panels_y_coords)
-            rebuilt_panels.draw(path, airfoil_name='Rebuilt ' + prev_NACA_name)
+            rebuilt_panels.draw(path, airfoil_name='Rebuilt Airfoil_'+str(i))
             
-            solver.draw_curves(path, panels, estimated_performance=estimated_performance, rebuilt_panels=rebuilt_panels)
+            solver.draw_curves(path, panels, name='Airfoil_'+str(i), estimated_performance=estimated_performance, rebuilt_panels=rebuilt_panels)
         
 if __name__ == '__main__':  
     
     n_panels = 24
-    num_airfoils = 2000
+    num_airfoils = 100000
     buffer_size = 100
     
     lr_start = 1.0e-3
-    lr_end = 1.0e-4
+    lr_end = 1.0e-5
     
     trainer = Trainer(lr_start, (lr_end/lr_start)**(1.0/num_airfoils), n_panels, buffer_size)
     solver = vps.Solver()
@@ -256,19 +261,21 @@ if __name__ == '__main__':
     forward_loss = []
     backward_loss = []
     for i in range(num_airfoils):
-        panels = vps.Panels(n_panels, panel_spacing='chebyshev')
+        panels = vps.Panels(n_panels)
         performance_input, _, _, _ = solver.get_curves(panels, 5)
         
-        performance_input[2] = 100.0 * performance_input[2]
-        performance_input[3] = 100.0 * performance_input[3]
-        performance_input[4] = 100.0 * performance_input[4]
+        performance_input[0] = 1.506 * performance_input[0]
+        performance_input[1] = 1.778 * performance_input[1]
+        performance_input[2] = 106.1 * performance_input[2]
+        performance_input[3] = 38.01 * performance_input[3]
+        performance_input[4] = 39.45 * performance_input[4]
         
-        curr_forward_loss = trainer.update_forward(100.0 * panels.y_coords, performance_input)
-        curr_backward_loss = trainer.update_backward(performance_input, 100.0 * panels.y_coords)
+        curr_forward_loss = trainer.update_forward(112.5*panels.y_coords, performance_input)
+        curr_backward_loss = trainer.update_backward(performance_input, 112.5*panels.y_coords)
         
         if(curr_forward_loss != -1.0):
             forward_loss.append(curr_forward_loss)
         if(curr_backward_loss != -1.0):
-            backward_loss.append(10.0*curr_backward_loss)
-            
+            backward_loss.append(curr_backward_loss)
+           
     trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)

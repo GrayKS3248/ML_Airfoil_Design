@@ -18,14 +18,14 @@ class NN(nn.Module):
         size = n_panels + 1
         
         #Initialize the encoding linear layers
-        self.fc1 = nn.Linear(size, size)
-        self.fc2 = nn.Linear(size, size)
-        self.fc3 = nn.Linear(size, 5)
+        self.fc1 = nn.Linear(size, 8*size)
+        self.fc2 = nn.Linear(8*size, 8*size)
+        self.fc3 = nn.Linear(8*size, 5)
 
         #Initialize the decoding linear layers
-        self.t_fc1 = nn.Linear(5, size)
-        self.t_fc2 = nn.Linear(size, size)
-        self.t_fc3 = nn.Linear(size, size)
+        self.t_fc1 = nn.Linear(5, 8*size)
+        self.t_fc2 = nn.Linear(8*size, 8*size)
+        self.t_fc3 = nn.Linear(8*size, size)
 
     def forward(self, x):
         #Feed-forward x
