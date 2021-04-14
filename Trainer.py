@@ -258,24 +258,28 @@ if __name__ == '__main__':
     trainer = Trainer(lr_start, (lr_end/lr_start)**(1.0/num_airfoils), n_panels, buffer_size)
     solver = vps.Solver()
     
-    forward_loss = []
-    backward_loss = []
-    for i in range(num_airfoils):
-        panels = vps.Panels(n_panels)
-        performance_input, _, _, _ = solver.get_curves(panels, 5)
+    panels = vps.Panels(24)
+    panels.draw('results', 'Airfoil')
+    solver.draw_curves('results', panels, name='Airfoil')
+    
+    # forward_loss = []
+    # backward_loss = []
+    # for i in range(num_airfoils):
+    #     panels = vps.Panels(n_panels)
+    #     performance_input, _, _, _ = solver.get_curves(panels, 5)
         
-        performance_input[0] = 1.506 * performance_input[0]
-        performance_input[1] = 1.778 * performance_input[1]
-        performance_input[2] = 106.1 * performance_input[2]
-        performance_input[3] = 38.01 * performance_input[3]
-        performance_input[4] = 39.45 * performance_input[4]
+    #     performance_input[0] = 1.506 * performance_input[0]
+    #     performance_input[1] = 1.778 * performance_input[1]
+    #     performance_input[2] = 106.1 * performance_input[2]
+    #     performance_input[3] = 38.01 * performance_input[3]
+    #     performance_input[4] = 39.45 * performance_input[4]
         
-        curr_forward_loss = trainer.update_forward(112.5*panels.y_coords, performance_input)
-        curr_backward_loss = trainer.update_backward(performance_input, 112.5*panels.y_coords)
+    #     curr_forward_loss = trainer.update_forward(112.5*panels.y_coords, performance_input)
+    #     curr_backward_loss = trainer.update_backward(performance_input, 112.5*panels.y_coords)
         
-        if(curr_forward_loss != -1.0):
-            forward_loss.append(curr_forward_loss)
-        if(curr_backward_loss != -1.0):
-            backward_loss.append(curr_backward_loss)
+    #     if(curr_forward_loss != -1.0):
+    #         forward_loss.append(curr_forward_loss)
+    #     if(curr_backward_loss != -1.0):
+    #         backward_loss.append(curr_backward_loss)
            
-    trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)
+    # trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)

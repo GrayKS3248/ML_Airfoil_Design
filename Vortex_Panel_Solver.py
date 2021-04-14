@@ -322,10 +322,10 @@ class Solver:
         self.Cdp=0.0
         self.Cmc4=0.0
     
-    # Solves the total local velocity at each control point
+    # Solves the total local velocity at each control point based on linear varying vortex panel method
     # @param Angle of attack
     # @param Panels object that defines airfoil geometry
-    def get_velocity(self, alpha, panels):
+    def get_velocity_vp(self, alpha, panels):
 
         Cn1 = np.zeros((len(panels.control_x_coords),len(panels.control_x_coords)))
         Cn2 = np.zeros((len(panels.control_x_coords),len(panels.control_x_coords)))
@@ -389,6 +389,89 @@ class Solver:
         
         return self.v_panels
     
+    # Solves the total local velocity at each control point based on vortex source method
+    # @param Angle of attack
+    # @param Panels object that defines airfoil geometry
+    def get_velocity_spvp(self, alpha, panels):
+
+        Iij = np.zeros((len(panels.control_x_coords),len(panels.control_x_coords)))
+        Jij = np.zeros((len(panels.control_x_coords),len(panels.control_x_coords)))
+        Kij = np.zeros((len(panels.control_x_coords),len(panels.control_x_coords)))
+        Lij = np.zeros((len(panels.control_x_coords),len(panels.control_x_coords)))
+        for i in range(len(panels.control_x_coords)):
+            xi = panels.control_x_coords[i]
+            yi = panels.control_y_coords[i]
+            theta_i = panels.theta[i]
+                    
+            for j in range(len(panels.control_x_coords)):
+                theta_j = panels.theta[j]
+                Sj = panels.lengths[j]
+                Xj = panels.x_coords[j]
+                Yj = panels.y_coords[j]
+                
+                A = -(xi-Xj)*np.cos(theta_j)-(yi-Yj)*np.sin(theta_j)
+                B = (xi-Xj)**2.0+(yi-Yj)**2.0
+                Ci = np.sin(theta_i-theta_j)
+                Cj = -np.cos(theta_i-theta_j)
+                Ck = -np.cos(theta_i-theta_j)
+                Cl = np.sin(theta_j-theta_i)
+                Di = -(xi-Xj)*np.sin(theta_i)+(yi-Yj)*np.cos(theta_i)
+                Djk = (xi-Xj)*np.cos(theta_i)+(yi-Yj)*np.sin(theta_i)
+                Dl = (xi-Xj)*np.sin(theta_i)-(yi-Yj)*np.cos(theta_i)
+                if B-A*A >= 0.0:
+                    E = np.sqrt(B-A*A)    
+                else:
+                    E = 0.0
+                
+                if B == 0.0 or E == 0.0:
+                    Iij[i,j] = 0.0
+                    Jij[i,j] = 0.0
+                    Kij[i,j] = 0.0
+                    Lij[i,j] = 0.0
+                
+                else:
+                    Iij[i,j] = (Ci/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Di-A*Ci)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
+                    Jij[i,j] = (Cj/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Djk-A*Cj)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
+                    Kij[i,j] = (Ck/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Djk-A*Ck)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
+                    Lij[i,j] = (Cl/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Dl-A*Cl)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
+         
+        aerodynamic_matrix = np.zeros((len(panels.x_coords),len(panels.x_coords)))
+        for i in range(len(panels.x_coords)):
+            for j in range(len(panels.x_coords)):
+
+                if i == len(panels.x_coords) - 1:
+                    
+                    if j == len(panels.x_coords) - 1:
+                        aerodynamic_matrix[i,j] = -np.sum(Lij[0,:]) - np.sum(Lij[len(panels.x_coords)-2,:]) + 2.0*np.pi
+                    
+                    else:
+                        aerodynamic_matrix[i,j] = Jij[0,j] + Jij[len(panels.x_coords)-2,j]
+
+                elif j == len(panels.x_coords) - 1:
+                    aerodynamic_matrix[i,j] = -np.sum(Kij[i,:])
+                
+                elif i == j:
+                    aerodynamic_matrix[i,j] = np.pi
+                
+                else:
+                    aerodynamic_matrix[i,j] = Iij[i,j]
+        
+        free_stream_matrix = -2.0*np.pi*np.sin(panels.theta - alpha*(np.pi/180.0))
+        free_stream_matrix = np.append(free_stream_matrix, -2.0*np.pi*(np.cos(panels.theta[0]-alpha*(np.pi/180.0)) + np.cos(panels.theta[len(panels.x_coords)-2]-alpha*(np.pi/180.0))))
+        
+        source_vortex_soln = np.linalg.solve(aerodynamic_matrix,free_stream_matrix)
+        
+        self.v_panels = np.zeros(len(panels.x_coords)-1)
+        for i in range(len(panels.x_coords)-2):
+            term1 = np.cos(panels.theta[i]-alpha*(np.pi/180.0))
+            term2 = 1.0 / (2.0*np.pi) * np.sum(source_vortex_soln[0:-1]*Jij[i,:])
+            term3 = source_vortex_soln[-1] / 2.0
+            term4 = -(source_vortex_soln[-1] / (2.0*np.pi))*np.sum(Lij[i,:])
+            
+            self.v_panels[i] = term1 + term2 + term3 + term4
+        
+        return self.v_panels
+    
     # Solves the lift, drag, and moment coefficients
     # @param Angle of attack
     # @param Panels object that defines airfoil geometry
@@ -397,7 +480,7 @@ class Solver:
         self.alpha = alpha
         self.panels = panels
         
-        v_panels = self.get_velocity(alpha, panels)
+        v_panels = self.get_velocity_spvp(alpha, panels)
         self.cp = 1.0 - v_panels**2.0
         
         Cf = -self.cp * panels.lengths * panels.normal
@@ -416,7 +499,7 @@ class Solver:
         self.Cl = Cn*np.cos(alpha*np.pi/180.0) - Ca*np.sin(alpha*np.pi/180.0)
         self.Cdp = Cn*np.sin(alpha*np.pi/180.0) + Ca*np.cos(alpha*np.pi/180.0)
         
-        return self.Cl, self.Cdp, self.Cmc4
+        return self.Cl, self.Cdp, self.Cmc4, self.cp
     
     # Calculates the lift and moment curves of a set of panels
     def get_curves(self, panels, n_points):
@@ -436,10 +519,18 @@ class Solver:
     
         lift_curve = []
         moment_curve = []
+        # min_upper_cp = 0.0
+        # min_upper_cp_loc = 0.0
+        # min_lower_cp = 0.0
+        # min_lower_cp_loc = 0.0
         for j in range(n_points):
-            Cl, Cd, Cm_c4 = self.get_aerodynamics(alpha_curve[j],panels)
+            Cl, Cd, Cm_c4, cp = self.get_aerodynamics(alpha_curve[j],panels)
             lift_curve.append(Cl)
             moment_curve.append(Cm_c4)
+            # if cp:
+            #     min_upper_cp = cp
+            # if cp:
+            #     min_lower_cp = cp
         
         a = len(alpha_curve)*sum(np.array(alpha_curve)*(np.pi/180.0)*np.array(lift_curve))
         b = sum(np.array(alpha_curve)*(np.pi/180.0))*sum(np.array(lift_curve))
