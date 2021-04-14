@@ -27,7 +27,7 @@ class Panels:
     def set_y_coords(self, y_coords):
         self.y_coords = y_coords
         self.camber_line = self.get_camber(self.y_coords)
-        self.control_x_coords, self.control_y_coords = self.get_points(self.x_coords, self.y_coords)
+        self.control_x_coords, self.control_y_coords = self.get_control_points(self.x_coords, self.y_coords)
         self.normal = self.get_normal(self.x_coords, self.y_coords)
         self.lengths = self.get_length(self.x_coords, self.y_coords)
         self.theta = self.get_angles(self.x_coords, self.y_coords, self.lengths)
@@ -403,21 +403,25 @@ class Solver:
             xi = panels.control_x_coords[i]
             yi = panels.control_y_coords[i]
             theta_i = panels.theta[i]
+            c_theta_i = np.cos(theta_i)
+            s_theta_i = np.sin(theta_i)
                     
             for j in range(panels.n_panels):
                 theta_j = panels.theta[j]
+                c_theta_j = np.cos(theta_j)
+                s_theta_j = np.sin(theta_j)
                 Sj = panels.lengths[j]
                 Xj = panels.x_coords[j]
                 Yj = panels.y_coords[j]
                 
-                A = -(xi-Xj)*np.cos(theta_j)-(yi-Yj)*np.sin(theta_j)
+                A = -(xi-Xj)*c_theta_j-(yi-Yj)*s_theta_j
                 B = (xi-Xj)**2.0+(yi-Yj)**2.0
                 Ci = np.sin(theta_i-theta_j)
                 Cj = -np.cos(theta_i-theta_j)
                 Cl = np.sin(theta_j-theta_i)
-                Di = -(xi-Xj)*np.sin(theta_i)+(yi-Yj)*np.cos(theta_i)
-                Dj = (xi-Xj)*np.cos(theta_i)+(yi-Yj)*np.sin(theta_i)
-                Dl = (xi-Xj)*np.sin(theta_i)-(yi-Yj)*np.cos(theta_i)
+                Di = -(xi-Xj)*s_theta_i+(yi-Yj)*c_theta_i
+                Dj = (xi-Xj)*c_theta_i+(yi-Yj)*s_theta_i
+                Dl = (xi-Xj)*s_theta_i-(yi-Yj)*c_theta_i
                 if B-A*A >= 0.0:
                     E = np.sqrt(B-A*A)    
                 else:
@@ -430,10 +434,12 @@ class Solver:
                     Lij[i,j] = 0.0
                 
                 else:
-                    Iij[i,j] = (Ci/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Di-A*Ci)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
-                    Jij[i,j] = (Cj/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Dj-A*Cj)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
+                    term1 = np.log((Sj*Sj+2.0*A*Sj+B)/B)/2.0
+                    term2 = (np.arctan2((Sj+A),E)-np.arctan2(A,E))/E
+                    Iij[i,j] = Ci*term1+(Di-A*Ci)*term2
+                    Jij[i,j] = Cj*term1+(Dj-A*Cj)*term2
                     Kij[i,j] = Jij[i,j]
-                    Lij[i,j] = (Cl/2.0)*np.log((Sj*Sj+2.0*A*Sj+B)/B)+((Dl-A*Cl)/E)*(np.arctan2((Sj+A),E)-np.arctan2(A,E))
+                    Lij[i,j] = Cl*term1+(Dl-A*Cl)*term2
          
         aerodynamic_matrix = np.zeros((panels.n_panels+1,panels.n_panels+1))
         for i in range(panels.n_panels+1):
@@ -522,18 +528,19 @@ class Solver:
     
         lift_curve = []
         moment_curve = []
-        min_upper_cp = 0.0
-        min_upper_cp_loc = 0.0
-        min_lower_cp = 0.0
-        min_lower_cp_loc = 0.0
+        min_upper_cp_loc = []
+        min_lower_cp_loc = []
         for j in range(n_points):
             Cl, Cd, Cm_c4, cp = self.get_aerodynamics(alpha_curve[j],panels)
+            upper_cp = cp[panels.n_panels//2:]
+            lower_cp = cp[0:panels.n_panels//2]
             lift_curve.append(Cl)
             moment_curve.append(Cm_c4)
-            if cp:
-                min_upper_cp = cp
-            if cp:
-                min_lower_cp = cp
+            min_upper_cp_loc.append(panels.control_x_coords[np.argmin(upper_cp)+panels.n_panels//2])
+            min_lower_cp_loc.append(panels.control_x_coords[np.argmin(lower_cp)])
+            
+        min_upper_cp_loc = np.mean(min_upper_cp_loc)
+        min_lower_cp_loc = np.mean(min_lower_cp_loc)
         
         a = len(alpha_curve)*sum(np.array(alpha_curve)*(np.pi/180.0)*np.array(lift_curve))
         b = sum(np.array(alpha_curve)*(np.pi/180.0))*sum(np.array(lift_curve))
@@ -551,27 +558,29 @@ class Solver:
         B[2] = sum(np.array(moment_curve) * (np.array(alpha_curve) * (np.pi/180.0))**2.0)
         C = np.linalg.solve(A,B)
         
-        curve_parameters = np.zeros(5)
+        curve_parameters = np.zeros(7)
         curve_parameters[0] = lift_slope
         curve_parameters[1] = zero_lift_angle
         curve_parameters[2] = C[0]
         curve_parameters[3] = C[1]
         curve_parameters[4] = C[2]
+        curve_parameters[5] = min_upper_cp_loc
+        curve_parameters[6] = min_lower_cp_loc
         
         return curve_parameters, alpha_curve, lift_curve, moment_curve
         
     # Draws the lift and moment curves
     def draw_curves(self, path, panels, name='', estimated_performance=[], rebuilt_panels=0.0):
         
-        _, alpha_curve, lift_curve, moment_curve = self.get_curves(panels, 50)
+        real_performance, alpha_curve, lift_curve, moment_curve = self.get_curves(panels, 50)
         
         plot_rebuilt = False
         if isinstance(rebuilt_panels, Panels):
-            _, _, rebuilt_lift_curve, rebuilt_moment_curve = self.get_curves(rebuilt_panels, 50)
+            rebuilt_performance, _, rebuilt_lift_curve, rebuilt_moment_curve = self.get_curves(rebuilt_panels, 50)
             plot_rebuilt = True
             
         plot_estimated = False
-        if len(estimated_performance)==5:
+        if len(estimated_performance)==7:
             estimated_lift_curve = estimated_performance[0] * (alpha_curve*(np.pi/180.0) - estimated_performance[1]*(np.pi/180.0))
             estimated_moment_curve = estimated_performance[2] + estimated_performance[3]*(alpha_curve*(np.pi/180.0)) + estimated_performance[4]*(alpha_curve*(np.pi/180.0))**2.0
             plot_estimated = True
@@ -612,6 +621,8 @@ class Solver:
                 plt.title("Lift Curve for "+name, fontsize="xx-large")
             else:
                 plt.title("Lift Curve", fontsize="xx-large")
+            plt.text(-5.2, np.max(lift_curve)*0.95, r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
+            plt.text(-5.2, np.max(lift_curve)*0.825, r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
             plt.gcf().set_size_inches(8,5.6)
@@ -629,7 +640,11 @@ class Solver:
                 plt.title("Lift Curve for "+name, fontsize="xx-large")
             else:
                 plt.title("Lift Curve", fontsize="xx-large")
-            plt.legend(fontsize='x-large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.950+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.700+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.825+np.min(lift_curve), r'$\overline{x_{p_{min,u}}}$'+' = '+str(round(estimated_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.575+np.min(lift_curve), r'$\overline{x_{p_{min,l}}}$'+' = '+str(round(estimated_performance[6],2)),fontsize='large')
+            plt.legend(fontsize='x-large',loc='lower right')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
             plt.gcf().set_size_inches(8,5.6)
@@ -647,7 +662,11 @@ class Solver:
                 plt.title("Lift Curve for "+name, fontsize="xx-large")
             else:
                 plt.title("Lift Curve", fontsize="xx-large")
-            plt.legend(fontsize='x-large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.950+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.700+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.825+np.min(lift_curve), r'$\overline{x_{p_{min,u}}}$'+' = '+str(round(rebuilt_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.575+np.min(lift_curve), r'$\overline{x_{p_{min,l}}}$'+' = '+str(round(rebuilt_performance[6],2)),fontsize='large')
+            plt.legend(fontsize='x-large',loc='lower right')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
             plt.gcf().set_size_inches(8,5.6)

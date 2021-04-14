@@ -32,9 +32,6 @@ class Trainer:
         self.optimizer_backward = torch.optim.Adam(self.model.parameters(), lr=alpha)
         self.lr_scheduler_forward = torch.optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer_forward, gamma=decay)
         self.lr_scheduler_backward = torch.optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer_backward, gamma=decay)
-            
-        # Memory for MSE loss
-        self.tot_MSE_loss = 0.0
         
         # Initialize frame buffer
         self.buffer_size = buffer_size
@@ -85,8 +82,7 @@ class Trainer:
         if len(self.panels_forward_buffer) >= self.buffer_size:
             
             # Step through frame buffer
-            self.tot_MSE_loss = 0.0
-            count = 0
+            tot_MSE_loss = 0.0
             
             for i in range(self.buffer_size):
                 
@@ -102,20 +98,17 @@ class Trainer:
                 curr_MSE_loss = self.criterion(performance_output, target)
                         
                 # Calculate loss and take optimization step and learning rate step
-                if curr_MSE_loss <= 50.0:
-                    self.optimizer_forward.zero_grad()
-                    curr_MSE_loss.backward()
-                    self.optimizer_forward.step()
-                    self.lr_scheduler_forward.step()
-                    self.tot_MSE_loss = self.tot_MSE_loss + curr_MSE_loss.item()
-                    count = count + 1
+                self.optimizer_forward.zero_grad()
+                curr_MSE_loss.backward()
+                self.optimizer_forward.step()
+                self.lr_scheduler_forward.step()
+                tot_MSE_loss = tot_MSE_loss + curr_MSE_loss.item()
             
             # Empty frame buffer
             self.panels_forward_buffer = []
             self.performance_forward_buffer = []
 
-            if count > 0:
-                return self.tot_MSE_loss / count
+            return tot_MSE_loss / self.buffer_size
         
         return -1.0
     
@@ -129,8 +122,7 @@ class Trainer:
         if len(self.panels_backward_buffer) >= self.buffer_size:
             
             # Step through frame buffer
-            self.tot_MSE_loss = 0.0
-            count = 0
+            tot_MSE_loss = 0.0
             
             for i in range(self.buffer_size):
                 
@@ -146,20 +138,17 @@ class Trainer:
                 curr_MSE_loss = self.criterion(panels_output, target)
                         
                 # Calculate loss and take optimization step and learning rate step
-                if curr_MSE_loss <= 50.0:
-                    self.optimizer_backward.zero_grad()
-                    curr_MSE_loss.backward()
-                    self.optimizer_backward.step()
-                    self.lr_scheduler_backward.step()
-                    self.tot_MSE_loss = self.tot_MSE_loss + curr_MSE_loss.item()
-                    count = count + 1
+                self.optimizer_backward.zero_grad()
+                curr_MSE_loss.backward()
+                self.optimizer_backward.step()
+                self.lr_scheduler_backward.step()
+                tot_MSE_loss = tot_MSE_loss + curr_MSE_loss.item()
                     
             # Empty frame buffer
             self.panels_backward_buffer = []
             self.performance_backward_buffer = []
 
-            if count > 0:
-                return self.tot_MSE_loss / count
+            return tot_MSE_loss / self.buffer_size
         
         return -1.0
     
@@ -226,19 +215,23 @@ class Trainer:
             panels.draw(path, airfoil_name='Airfoil_'+str(i))
             
             estimated_performance = self.forward(100.0 * panels.y_coords)
-            estimated_performance[0] = estimated_performance[0] / 1.506
-            estimated_performance[1] = estimated_performance[1] / 1.778
-            estimated_performance[2] = estimated_performance[2] / 106.1
-            estimated_performance[3] = estimated_performance[3] / 38.01
-            estimated_performance[4] = estimated_performance[4] / 39.45
+            estimated_performance[0] = estimated_performance[0] / 1.458
+            estimated_performance[1] = estimated_performance[1] / 2.255
+            estimated_performance[2] = estimated_performance[2] / 72.71
+            estimated_performance[3] = estimated_performance[3] / 92.17
+            estimated_performance[4] = estimated_performance[4] / 52.12
+            estimated_performance[5] = estimated_performance[5] / 67.58
+            estimated_performance[6] = estimated_performance[6] / 31.70
         
             performance_input, _, _, _ = solver.get_curves(panels, 5)
-            performance_input[0] = 1.506 * performance_input[0]
-            performance_input[1] = 1.778 * performance_input[1]
-            performance_input[2] = 106.1 * performance_input[2]
-            performance_input[3] = 38.01 * performance_input[3]
-            performance_input[4] = 39.45 * performance_input[4]
-            rebuilt_panels_y_coords = self.backward(performance_input) / 112.5
+            performance_input[0] = 1.458 * performance_input[0]
+            performance_input[1] = 2.255 * performance_input[1]
+            performance_input[2] = 72.71 * performance_input[2]
+            performance_input[3] = 92.17 * performance_input[3]
+            performance_input[4] = 52.12 * performance_input[4]
+            performance_input[5] = 67.58 * performance_input[5]
+            performance_input[6] = 31.70 * performance_input[6]
+            rebuilt_panels_y_coords = self.backward(performance_input) / 118.5
             
             rebuilt_panels = vps.Panels(n_panels)
             rebuilt_panels.set_y_coords(rebuilt_panels_y_coords)
@@ -249,8 +242,8 @@ class Trainer:
 if __name__ == '__main__':  
     
     n_panels = 24
-    num_airfoils = 100000
-    buffer_size = 100
+    num_airfoils = 1000
+    buffer_size = 10
     
     lr_start = 1.0e-3
     lr_end = 1.0e-5
@@ -258,28 +251,26 @@ if __name__ == '__main__':
     trainer = Trainer(lr_start, (lr_end/lr_start)**(1.0/num_airfoils), n_panels, buffer_size)
     solver = vps.Solver()
     
-    panels = vps.Panels(24)
-    panels.draw('results', 'Airfoil')
-    solver.draw_curves('results', panels, name='Airfoil')
-    
-    # forward_loss = []
-    # backward_loss = []
-    # for i in range(num_airfoils):
-    #     panels = vps.Panels(n_panels)
-    #     performance_input, _, _, _ = solver.get_curves(panels, 5)
+    forward_loss = []
+    backward_loss = []
+    for i in range(num_airfoils):
+        panels = vps.Panels(n_panels)
+        performance_input, _, _, _ = solver.get_curves(panels, 5)
         
-    #     performance_input[0] = 1.506 * performance_input[0]
-    #     performance_input[1] = 1.778 * performance_input[1]
-    #     performance_input[2] = 106.1 * performance_input[2]
-    #     performance_input[3] = 38.01 * performance_input[3]
-    #     performance_input[4] = 39.45 * performance_input[4]
+        performance_input[0] = 1.458 * performance_input[0]
+        performance_input[1] = 2.255 * performance_input[1]
+        performance_input[2] = 72.71 * performance_input[2]
+        performance_input[3] = 92.17 * performance_input[3]
+        performance_input[4] = 52.12 * performance_input[4]
+        performance_input[5] = 67.58 * performance_input[5]
+        performance_input[6] = 31.70 * performance_input[6]
         
-    #     curr_forward_loss = trainer.update_forward(112.5*panels.y_coords, performance_input)
-    #     curr_backward_loss = trainer.update_backward(performance_input, 112.5*panels.y_coords)
+        curr_forward_loss = trainer.update_forward(118.5*panels.y_coords, performance_input)
+        curr_backward_loss = trainer.update_backward(performance_input, 118.5*panels.y_coords)
         
-    #     if(curr_forward_loss != -1.0):
-    #         forward_loss.append(curr_forward_loss)
-    #     if(curr_backward_loss != -1.0):
-    #         backward_loss.append(curr_backward_loss)
+        if(curr_forward_loss != -1.0):
+            forward_loss.append(curr_forward_loss)
+        if(curr_backward_loss != -1.0):
+            backward_loss.append(curr_backward_loss)
            
-    # trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)
+    trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)

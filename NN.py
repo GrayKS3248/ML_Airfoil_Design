@@ -20,10 +20,10 @@ class NN(nn.Module):
         #Initialize the encoding linear layers
         self.fc1 = nn.Linear(size, 8*size)
         self.fc2 = nn.Linear(8*size, 8*size)
-        self.fc3 = nn.Linear(8*size, 5)
+        self.fc3 = nn.Linear(8*size, 7)
 
         #Initialize the decoding linear layers
-        self.t_fc1 = nn.Linear(5, 8*size)
+        self.t_fc1 = nn.Linear(7, 8*size)
         self.t_fc2 = nn.Linear(8*size, 8*size)
         self.t_fc3 = nn.Linear(8*size, size)
 
