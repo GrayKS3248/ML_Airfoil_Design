@@ -242,8 +242,8 @@ class Trainer:
 if __name__ == '__main__':  
     
     n_panels = 24
-    num_airfoils = 1000
-    buffer_size = 10
+    num_airfoils = 50000
+    buffer_size = 100
     
     lr_start = 1.0e-3
     lr_end = 1.0e-5

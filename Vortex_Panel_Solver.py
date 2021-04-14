@@ -621,8 +621,12 @@ class Solver:
                 plt.title("Lift Curve for "+name, fontsize="xx-large")
             else:
                 plt.title("Lift Curve", fontsize="xx-large")
-            plt.text(-5.2, np.max(lift_curve)*0.95, r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
-            plt.text(-5.2, np.max(lift_curve)*0.825, r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*1.0+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.9+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
+            if np.min(lift_curve) < 0.0:
+                plt.ylim([1.1*np.min(lift_curve), 1.1*np.max(lift_curve)])
+            else:
+                plt.ylim([0.9*np.min(lift_curve), 1.1*np.max(lift_curve)])
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
             plt.gcf().set_size_inches(8,5.6)
@@ -640,13 +644,17 @@ class Solver:
                 plt.title("Lift Curve for "+name, fontsize="xx-large")
             else:
                 plt.title("Lift Curve", fontsize="xx-large")
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.950+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.700+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.825+np.min(lift_curve), r'$\overline{x_{p_{min,u}}}$'+' = '+str(round(estimated_performance[5],2)),fontsize='large')
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.575+np.min(lift_curve), r'$\overline{x_{p_{min,l}}}$'+' = '+str(round(estimated_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*1.0+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.8+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.9+np.min(lift_curve), r'$\overline{x_{p_{min,u}}}$'+' = '+str(round(estimated_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.7+np.min(lift_curve), r'$\overline{x_{p_{min,l}}}$'+' = '+str(round(estimated_performance[6],2)),fontsize='large')
             plt.legend(fontsize='x-large',loc='lower right')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
+            if np.min(lift_curve) < 0.0:
+                plt.ylim([1.1*np.min(lift_curve), 1.1*np.max(lift_curve)])
+            else:
+                plt.ylim([0.9*np.min(lift_curve), 1.1*np.max(lift_curve)])
             plt.gcf().set_size_inches(8,5.6)
             plt.savefig(lift_path_estimated, dpi=200)
             
@@ -662,13 +670,17 @@ class Solver:
                 plt.title("Lift Curve for "+name, fontsize="xx-large")
             else:
                 plt.title("Lift Curve", fontsize="xx-large")
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.950+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.700+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.825+np.min(lift_curve), r'$\overline{x_{p_{min,u}}}$'+' = '+str(round(rebuilt_performance[5],2)),fontsize='large')
-            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.575+np.min(lift_curve), r'$\overline{x_{p_{min,l}}}$'+' = '+str(round(rebuilt_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*1.0+np.min(lift_curve), r'$x_{p_{min,u}}$'+' = '+str(round(real_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.8+np.min(lift_curve), r'$x_{p_{min,l}}$'+' = '+str(round(real_performance[6],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.9+np.min(lift_curve), r'$\overline{x_{p_{min,u}}}$'+' = '+str(round(rebuilt_performance[5],2)),fontsize='large')
+            plt.text(-5.2, (np.max(lift_curve)-np.min(lift_curve))*0.7+np.min(lift_curve), r'$\overline{x_{p_{min,l}}}$'+' = '+str(round(rebuilt_performance[6],2)),fontsize='large')
             plt.legend(fontsize='x-large',loc='lower right')
             plt.xticks(fontsize='x-large')
             plt.yticks(fontsize='x-large')
+            if np.min(lift_curve) < 0.0:
+                plt.ylim([1.1*np.min(lift_curve), 1.1*np.max(lift_curve)])
+            else:
+                plt.ylim([0.9*np.min(lift_curve), 1.1*np.max(lift_curve)])
             plt.gcf().set_size_inches(8,5.6)
             plt.savefig(lift_path_rebuilt, dpi=200)
         
