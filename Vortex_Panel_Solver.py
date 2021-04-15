@@ -93,7 +93,7 @@ class Panels:
         
         camber_type = np.random.randint(0,4)
         
-        if camber_type==0:
+        if True:
             max_camber = 0.069 * np.random.rand() + 0.001
             max_camber_loc = 0.40 * np.random.rand() + 0.10
             LE_camber_pitch = 1.0 * np.random.rand() + 1.0
