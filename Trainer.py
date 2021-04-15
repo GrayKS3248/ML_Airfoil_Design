@@ -250,10 +250,8 @@ if __name__ == '__main__':
     
     trainer = Trainer(lr_start, (lr_end/lr_start)**(1.0/num_airfoils), n_panels, buffer_size)
     solver = vps.Solver()
-    
     panels = vps.Panels(n_panels)
     panels.draw('results')
-    #solver.draw_curves('results', panels)
     
     # forward_loss = []
     # backward_loss = []
