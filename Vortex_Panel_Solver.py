@@ -78,25 +78,29 @@ class Panels:
         
         x_on_c = x_coords[0:len(x_coords)//2+1]
         
-        max_thickness = 0.15 * np.random.rand() + 0.10
-        max_thickness_loc = 0.10 * np.random.rand() + 0.05
-        LE_thickness_pitch = 1.0 * np.random.rand() + 1.0
-        TE_thickness_pitch = 1.0 * np.random.rand() + 1.0
+        yf = 0.20 * np.random.rand() + 0.05
+        xf = 0.30 * np.random.rand() + 0.10
+        m0 = (100.0 - 2.0*(yf/xf)) * np.random.rand() + 2.0*(yf/xf)
         
-        LE_term = LE_thickness_pitch*np.exp(np.log((LE_thickness_pitch+1.0)/LE_thickness_pitch)*((2.0*x_on_c)/max_thickness_loc - (x_on_c/max_thickness_loc)**2.0))-LE_thickness_pitch
-        TE_term = TE_thickness_pitch*((TE_thickness_pitch+1.0)/TE_thickness_pitch)**(((2.0*max_thickness_loc-x_on_c-1.0)*(x_on_c-1.0))/(max_thickness_loc-1.0)**2.0)-TE_thickness_pitch
+        a = np.sqrt(xf/(m0*(m0*xf-2.0*yf)))*abs(m0*xf-yf)
+        b = abs((m0*xf-yf)*yf)/(m0*xf-2.0*yf)
+        h = xf
+        k = (-yf*yf)/(m0*xf-2.0*yf)
+        LE_thickness = ((b*np.sqrt(a*a-(x_on_c*(x_on_c<=xf)-h)**2.0)+a*k) / a) * (x_on_c<=xf)
         
-        LE_half_thickness = 0.5*max_thickness*LE_term*(x_on_c<=max_thickness_loc)
-        TE_half_thickness = 0.5*max_thickness*TE_term*(x_on_c>max_thickness_loc)
-        half_thickness = LE_half_thickness + TE_half_thickness
-        half_thickness[half_thickness<=1.0e-8] = 0.0
+        c = -yf/(xf*xf-2.0*xf+1)
+        d = (2.0*xf*yf)/(xf*xf-2.0*xf+1)
+        e = (yf*(1-2.0*xf))/(xf*xf-2.0*xf+1)
+        TE_thickness = (c*x_on_c*x_on_c + d*x_on_c + e) * (x_on_c>xf)
+        
+        half_thickness = 0.5*LE_thickness + 0.5*TE_thickness
+        half_thickness[half_thickness<1.0e-4]=0.0
         
         camber_type = np.random.randint(0,4)
-        
-        if True:
+        if camber_type==0:
             max_camber = 0.069 * np.random.rand() + 0.001
-            max_camber_loc = 0.40 * np.random.rand() + 0.10
-            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            max_camber_loc = 0.30 * np.random.rand() + 0.20
+            LE_camber_pitch = 1.99 * np.random.rand() + 0.01
             TE_camber_pitch = 1.99 * np.random.rand() + 0.01
             
             LE_term = LE_camber_pitch*np.exp(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)*((2.0*x_on_c)/max_camber_loc - (x_on_c/max_camber_loc)**2.0))-LE_camber_pitch
@@ -108,11 +112,11 @@ class Panels:
             camber_line[camber_line<=1.0e-8] = 0.0
         
         elif camber_type==1:
-            camber_inflection = 0.40 * np.random.rand() + 0.50
+            camber_inflection = 0.60 * np.random.rand() + 0.20
             
             LE_max_camber = 0.069 * np.random.rand() + 0.001
-            LE_max_camber_loc = 0.30 * camber_inflection  * np.random.rand() + 0.30 * camber_inflection
-            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            LE_max_camber_loc = 0.60 * camber_inflection  * np.random.rand() + 0.10 * camber_inflection
+            LE_camber_pitch = 1.99 * np.random.rand() + 0.01
             LE_inflection_pitch = 1.99 * np.random.rand() + 0.01
             
             LE_sigma_1 = (np.sqrt(2.0)*LE_max_camber_loc) / (2.0*np.sqrt(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)))
@@ -124,10 +128,10 @@ class Panels:
             LE_camber_2 = LE_max_camber*LE_term_2*((x_on_c>LE_max_camber_loc) * (x_on_c<=camber_inflection))
             LE_camber = LE_camber_1 + LE_camber_2
             
-            TE_max_camber = 0.049 * np.random.rand() + 0.001
+            TE_max_camber = 0.069 * np.random.rand() + 0.001
             TE_max_camber_loc = (0.90 - camber_inflection - 0.1)  * np.random.rand() + camber_inflection + 0.1
             TE_inflection_pitch = 1.99 * np.random.rand() + 0.01
-            TE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            TE_camber_pitch = 1.99 * np.random.rand() + 0.01
             
             TE_sigma_1 = (np.sqrt(2.0)*(TE_max_camber_loc-camber_inflection)) / (2.0*np.sqrt(np.log((TE_inflection_pitch+1.0)/TE_inflection_pitch)))
             TE_term_1 = (TE_inflection_pitch + 1.0)*np.exp(-0.5*((x_on_c-TE_max_camber_loc)/TE_sigma_1)**2.0)-TE_inflection_pitch
@@ -142,11 +146,11 @@ class Panels:
             camber_line[abs(camber_line)<=1.0e-8] = 0.0
         
         elif camber_type==2:
-            camber_inflection = 0.30 * np.random.rand() + 0.20
+            camber_inflection = 0.60 * np.random.rand() + 0.20
             
             LE_max_camber = 0.069 * np.random.rand() + 0.001
-            LE_max_camber_loc = 0.30 * camber_inflection  * np.random.rand() + 0.30 * camber_inflection
-            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            LE_max_camber_loc = 0.60 * camber_inflection  * np.random.rand() + 0.10 * camber_inflection
+            LE_camber_pitch = 1.99 * np.random.rand() + 0.01
             LE_inflection_pitch = 1.99 * np.random.rand() + 0.01
             
             LE_sigma_1 = (np.sqrt(2.0)*LE_max_camber_loc) / (2.0*np.sqrt(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)))
@@ -158,10 +162,10 @@ class Panels:
             LE_camber_2 = -LE_max_camber*LE_term_2*((x_on_c>LE_max_camber_loc) * (x_on_c<=camber_inflection))
             LE_camber = LE_camber_1 + LE_camber_2
             
-            TE_max_camber = 0.049 * np.random.rand() + 0.001
+            TE_max_camber = 0.069 * np.random.rand() + 0.001
             TE_max_camber_loc = (0.90 - camber_inflection - 0.1)  * np.random.rand() + camber_inflection + 0.1
             TE_inflection_pitch = 1.99 * np.random.rand() + 0.01
-            TE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            TE_camber_pitch = 1.99 * np.random.rand() + 0.01
             
             TE_sigma_1 = (np.sqrt(2.0)*(TE_max_camber_loc-camber_inflection)) / (2.0*np.sqrt(np.log((TE_inflection_pitch+1.0)/TE_inflection_pitch)))
             TE_term_1 = (TE_inflection_pitch + 1.0)*np.exp(-0.5*((x_on_c-TE_max_camber_loc)/TE_sigma_1)**2.0)-TE_inflection_pitch
@@ -177,8 +181,8 @@ class Panels:
         
         elif camber_type==3:
             max_camber = 0.069 * np.random.rand() + 0.001
-            max_camber_loc = 0.40 * np.random.rand() + 0.10
-            LE_camber_pitch = 1.0 * np.random.rand() + 1.0
+            max_camber_loc = 0.30 * np.random.rand() + 0.20
+            LE_camber_pitch = 1.99 * np.random.rand() + 0.01
             TE_camber_pitch = 1.99 * np.random.rand() + 0.01
             
             LE_term = LE_camber_pitch*np.exp(np.log((LE_camber_pitch+1.0)/LE_camber_pitch)*((2.0*x_on_c)/max_camber_loc - (x_on_c/max_camber_loc)**2.0))-LE_camber_pitch
