@@ -243,57 +243,55 @@ class Trainer:
 if __name__ == '__main__':  
     
     n_panels = 48
-    num_airfoils = 100000
+    num_airfoils = 250000
     buffer_size = 100
     lr_start = 1.0e-3
     lr_end = 1.0e-5
     
     trainer = Trainer(lr_start, (lr_end/lr_start)**(1.0/num_airfoils), n_panels, buffer_size)
     solver = vps.Solver()
-    panels = vps.Panels(n_panels)
-    panels.draw('results')
     
-    # forward_loss = []
-    # backward_loss = []
-    # for i in range(num_airfoils):
-    #     if len(forward_loss) > 0:
-    #         if forward_loss[-1] // 10.0 >= 1.0:
-    #             forward_str = '{:.2f}'.format(round(forward_loss[-1],2))
-    #         else:
-    #             forward_str = '{:.3f}'.format(round(forward_loss[-1],3))
-    #         if backward_loss[-1] // 10.0 >= 1.0:
-    #             backward_str = '{:.2f}'.format(round(backward_loss[-1],2))
-    #         else:
-    #             backward_str = '{:.3f}'.format(round(backward_loss[-1],3))
-    #         print("Airfoil: " + str(i+1) + "/" + str(num_airfoils) + "  |  Forward Loss: " + forward_str + "  |  Backward Loss: " + backward_str, end='\r')
-    #     else:
-    #         print("Airfoil: " + str(i+1) + "/" + str(num_airfoils) + "  |  Forward Loss: " + '{:.3f}'.format(round(0.0,3)) + "  |  Backward Loss: " + '{:.3f}'.format(round(0.0,3)), end='\r')
+    forward_loss = []
+    backward_loss = []
+    for i in range(num_airfoils):
+        if len(forward_loss) > 0:
+            if forward_loss[-1] // 10.0 >= 1.0:
+                forward_str = '{:.2f}'.format(round(forward_loss[-1],2))
+            else:
+                forward_str = '{:.3f}'.format(round(forward_loss[-1],3))
+            if backward_loss[-1] // 10.0 >= 1.0:
+                backward_str = '{:.2f}'.format(round(backward_loss[-1],2))
+            else:
+                backward_str = '{:.3f}'.format(round(backward_loss[-1],3))
+            print("Airfoil: " + str(i+1) + "/" + str(num_airfoils) + "  |  Forward Loss: " + forward_str + "  |  Backward Loss: " + backward_str, end='\r')
+        else:
+            print("Airfoil: " + str(i+1) + "/" + str(num_airfoils) + "  |  Forward Loss: " + '{:.3f}'.format(round(0.0,3)) + "  |  Backward Loss: " + '{:.3f}'.format(round(0.0,3)), end='\r')
             
-    #     panels = vps.Panels(n_panels)
-    #     performance_input, _, _, _ = solver.get_curves(panels, 5)
+        panels = vps.Panels(n_panels)
+        performance_input, _, _, _ = solver.get_curves(panels, 5)
         
-    #     performance_input[0] = 1.458 * performance_input[0]
-    #     performance_input[1] = 2.255 * performance_input[1]
-    #     performance_input[2] = 72.71 * performance_input[2]
-    #     performance_input[3] = 92.17 * performance_input[3]
-    #     performance_input[4] = 52.12 * performance_input[4]
-    #     performance_input[5] = 67.58 * performance_input[5]
-    #     performance_input[6] = 31.70 * performance_input[6]
+        performance_input[0] = 1.458 * performance_input[0]
+        performance_input[1] = 2.255 * performance_input[1]
+        performance_input[2] = 72.71 * performance_input[2]
+        performance_input[3] = 92.17 * performance_input[3]
+        performance_input[4] = 52.12 * performance_input[4]
+        performance_input[5] = 67.58 * performance_input[5]
+        performance_input[6] = 31.70 * performance_input[6]
         
-    #     performance_input_trunc = np.zeros(5)
-    #     performance_input_trunc[0] = performance_input[0]
-    #     performance_input_trunc[1] = performance_input[1]
-    #     performance_input_trunc[2] = performance_input[2]
-    #     performance_input_trunc[3] = performance_input[5]
-    #     performance_input_trunc[4] = performance_input[6]
+        performance_input_trunc = np.zeros(5)
+        performance_input_trunc[0] = performance_input[0]
+        performance_input_trunc[1] = performance_input[1]
+        performance_input_trunc[2] = performance_input[2]
+        performance_input_trunc[3] = performance_input[5]
+        performance_input_trunc[4] = performance_input[6]
         
-    #     curr_forward_loss = trainer.update_forward(118.5*panels.y_coords, performance_input)
-    #     curr_backward_loss = trainer.update_backward(performance_input_trunc, 118.5*panels.y_coords)
+        curr_forward_loss = trainer.update_forward(118.5*panels.y_coords, performance_input)
+        curr_backward_loss = trainer.update_backward(performance_input_trunc, 118.5*panels.y_coords)
         
-    #     if(curr_forward_loss != -1.0):
-    #         forward_loss.append(curr_forward_loss)
-    #     if(curr_backward_loss != -1.0):
-    #         backward_loss.append(curr_backward_loss)
+        if(curr_forward_loss != -1.0):
+            forward_loss.append(curr_forward_loss)
+        if(curr_backward_loss != -1.0):
+            backward_loss.append(curr_backward_loss)
            
-    # trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)
-    # print("Done!")
+    trainer.save_results("results", 10, forward_loss=forward_loss, backward_loss=backward_loss)
+    print("Done!")
